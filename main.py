@@ -15,29 +15,40 @@ def mean_calc_rf(model, train_X, val_X, train_y, val_y):
 
 #Categorical Values
 #Ordinal Encoding
-def ordinal_encoding(X):
-    i = (X.dtypes == 'object')
-    objects_col = list(i[i].index)
+def ordinal_encoding(X_train, X_valid):
+    objects_col = [col for col in X_train.columns if X_train[col].dtype == 'object']
+    good_col = [col for col in objects_col if set(X_valid[col]).issubset(X_train[col])]
+    bad_col = list(set(objects_col) - set(good_col))
     
+    new_X_train = X_train.drop(bad_col, axis=1)
+    new_X_valid = X_valid.drop(bad_col, axis=1)
     ordinal_enc = OrdinalEncoder()
     
-    X[objects_col] = ordinal_enc.fit_transform(X[objects_col])
-    return X[objects_col]
+    new_X_train[good_col] = ordinal_enc.fit_transform(new_X_train[good_col])
+    new_X_valid[good_col] = ordinal_enc.fit_transform(new_X_valid[good_col])
+    return new_X_train, new_X_valid
+
 
 #One-Hot Encoding
-def oneHot_encoding(X):
-    i = (X.dtypes == 'object')
-    objects_col = list(i[i].index)
+def oneHot_encoding(X_train, X_valid):
+    objects_col = [col for col in X_train.columns if X_train[col].dtype == 'object']
+    low_cardinal_cols = [col for col in objects_col if X_train[col].nunique() < 10]
+    high_cadinal_cols = list(set(objects_col) - set(low_cardinal_cols))
     
     oh_encoder = OneHotEncoder(handle_unknown='ignore', sparse=False)
-    new_X = pd.DataFrame(oh_encoder.fit_transform(X[objects_col]))
-    new_X.index = X.index
+    oh_X_t = pd.DataFrame(oh_encoder.fit_transform(X_train[low_cardinal_cols]))
+    oh_X_v = pd.DataFrame(oh_encoder.transform(X_valid[low_cardinal_cols]))
+    oh_X_t.index = X_train.index
+    oh_X_v.index = X_valid.index
     
-    X = X.drop(objects_col, axis=1)
-    X = pd.concat([X, new_X], axis=1)
+    X_train = X_train.drop(objects_col, axis=1)
+    X_valid = X_valid.drop(objects_col, axis=1)
+    X_train = pd.concat([X_train, oh_X_t], axis=1)
+    X_valid = pd.concat([X_valid, oh_X_v], axis=1)
     
-    X.columns = X.columns.astype('str')
-    return X    
+    X_train.columns = X_train.columns.astype(str)
+    X_valid.columns = X_valid.columns.astype(str)
+    return X_train, X_valid   
 
 #work with missing values
 #drop columns with missing values 
@@ -64,9 +75,10 @@ X_full.dropna(axis=0, subset='Survived', inplace=True)
 y = X_full.Survived
 X_full.drop(['Survived'], axis=1, inplace=True)
 
+X_full = drop_columns_missing_values(X_full)
+X_test_full = drop_columns_missing_values(X_test_full)
 #Ordinal Encoding
-X = ordinal_encoding(X_full)
-X_test = ordinal_encoding(X_test_full)
+X , X_test= ordinal_encoding(X_full, X_test_full)
 
 # #One-hot Encodign
 # # 

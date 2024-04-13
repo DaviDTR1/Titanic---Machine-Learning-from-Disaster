@@ -37,7 +37,7 @@ def oneHot_encoding(X_train, X_valid):
     
     oh_encoder = OneHotEncoder(handle_unknown='ignore', sparse=False)
     oh_X_t = pd.DataFrame(oh_encoder.fit_transform(X_train[low_cardinal_cols]))
-    oh_X_v = pd.DataFrame(oh_encoder.transform(X_valid[low_cardinal_cols]))
+    oh_X_v = pd.DataFrame(oh_encoder.fit_transform(X_valid[low_cardinal_cols]))
     oh_X_t.index = X_train.index
     oh_X_v.index = X_valid.index
     
@@ -52,10 +52,13 @@ def oneHot_encoding(X_train, X_valid):
 
 #work with missing values
 #drop columns with missing values 
-def drop_columns_missing_values(data):
+def drop_columns_missing_values(data, data1):
     col_with_missing = [col for col in data.keys() if data[col].isnull().any()]
     
-    return data.drop(col_with_missing, axis=1)
+    new_data = data.drop(col_with_missing, axis=1) 
+    new_data1 = data1.drop(col_with_missing, axis=1) 
+    
+    return new_data, new_data1
 
 #replace missign value (Imputation)
 def imputation(data):
@@ -75,15 +78,13 @@ X_full.dropna(axis=0, subset='Survived', inplace=True)
 y = X_full.Survived
 X_full.drop(['Survived'], axis=1, inplace=True)
 
-X_full = drop_columns_missing_values(X_full)
-X_test_full = drop_columns_missing_values(X_test_full)
-#Ordinal Encoding
-X , X_test= ordinal_encoding(X_full, X_test_full)
+X_full, X_test_full = drop_columns_missing_values(X_full, X_test_full)
+
+# Ordinal Encoding
+X , X_test = ordinal_encoding(X_full, X_test_full)
 
 # #One-hot Encodign
-# # 
-# X = oneHot_encoding(X_full)
-# X_test = oneHot_encoding(X_test_full)
+# X, X_test = oneHot_encoding(X_full, X_test_full)
 
 # #Only use numerical predictors
 # X = X_full.select_dtypes(exclude=['object'])
@@ -120,7 +121,7 @@ model.fit(X,y)
 
 X_test = imputation(X_test)
 test_predict = model.predict(X_test)
-
+test_predict = [round(i) for i in test_predict]
 
 output = pd.DataFrame({'PassengerId': X_test_full.PassengerId,
                        'Survived': test_predict
